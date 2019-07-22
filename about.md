@@ -14,4 +14,4 @@ Programming has been a lifelong learning experience for me - you never stop impr
 
 ### Contact me
 
-[jamie@dclandavis.net](mailto:jamie@dclandavis.net)
+[jamie@clandavis.net](mailto:jamie@clandavis.net)
