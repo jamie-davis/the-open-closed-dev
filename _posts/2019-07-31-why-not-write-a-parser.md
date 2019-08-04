@@ -106,7 +106,9 @@ VAL(1) = 1    MULT = 3 * 5 = 15
 ```
 
 #### How?
-I will discuss how to build the code for each of the three steps in follow on posts.
+I will discuss how to build the code for each of the three steps in follow on posts:
+
+1. [Preparation](https://jamie-davis.github.io/the-open-closed-dev/Why-NOT-write-a-parser-2/)
 
 Thanks for reading.
 
