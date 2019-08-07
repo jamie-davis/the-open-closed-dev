@@ -125,7 +125,7 @@ Once you make the files match, re-run the ```dotnet test``` command, and this ti
 
 If all has gone well, our test suite is ready for real tests and we can remove ```UnitTest1.cs``` and ```UnitTest1.Test1.approved.txt```.
 
-The final step we need is to allow the test library to access ```internal``` items from the Parser library, which allows us to hide our implementation details but still have a separate test library. To do this add a file called ```Assembly.cs``` to the Parser folder, with the following contents:
+The final step we need is to allow the test library to access ```internal``` items from the Parser library, which allows us to hide our implementation details but still have a separate test project. To do this add a file called ```Assembly.cs``` to the Parser folder, with the following contents:
 
 ```c#
 using System.Runtime.CompilerServices;
