@@ -110,6 +110,8 @@ I will discuss how to build the code for each of the three steps in follow on po
 
 1. [Preparation](https://jamie-davis.github.io/the-open-closed-dev/Why-NOT-write-a-parser-2/)
 
+1. [Lexical Analyser](https://jamie-davis.github.io/the-open-closed-dev/Why-NOT-write-a-parser-3/)
+
 Thanks for reading.
 
 Jamie
