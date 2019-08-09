@@ -121,7 +121,7 @@ Jamie
 
 <b id="f2">2</b> It's a sweeping generalisation, that may not be true for your language but it's true for most. [↩](#a2)
 
-<b id="f3">3</b> To be more precise, I'm going to discuss LL(1) (**L**eft-to-right, **L**eftmost-derivation, look ahead by **1** token) parsers with backtracking. This is only good for unambiguous context free grammars, which is a fine way to build a simple domain specific language, but it's probably too limited for the next greate programming language.
+<b id="f3">3</b> To be more precise, I'm going to discuss LL(1) (**L**eft-to-right, **L**eftmost-derivation, look ahead by **1** token) parsers with backtracking. This is only good for unambiguous context free grammars, which is a fine way to build a simple domain specific language, but it's probably too limited for the next great programming language.
 
 I'm self educated on this stuff, so there's a chance I'll misuse terminology from time-to-time - for example, I often say "clause" when you are supposed to say "production". I'll let you research what that means.
 
