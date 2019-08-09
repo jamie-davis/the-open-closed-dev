@@ -133,7 +133,7 @@ using System.Runtime.CompilerServices;
 [assembly: InternalsVisibleTo("ParserTests")]
 ```
 
-The next post will deal with constructing a lexical analyser.
+The [next](https://jamie-davis.github.io/the-open-closed-dev/Why-NOT-write-a-parser-3/) post will deal with constructing a lexical analyser.
 
 Thanks for reading,
 
