@@ -29,7 +29,7 @@ NumericLiteral (45)
 
 This post is going to be pretty theoretical and is going to deal with defining a medium complexity parser. The bulk of this post will not be of interest for very simple DSLs, but if you need to parse expressions, you will encounter the same difficulties that we will address here. The biggest issue, as we will see, is allowing the parser to deal with invalid input.
 
-If you prefer to skip straight to the implementation, please [do](#code).
+If you prefer to skip straight to the implementation, please [do](https://jamie-davis.github.io/the-open-closed-dev/Why-NOT-write-a-parser-5/).
 
 We are going to parse this using a recursive descent parser that looks ahead by one token, goes from left to right, and interpretation of a token only depends on what precedes it (or LL(1) if you prefer). While we are going to use it on arithmetic expressions, the method is very general, provided we can interpret the tokens in the way I just stated. If you are putting together your own DSL, then you can design it with this method in mind.
 
