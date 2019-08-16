@@ -3,7 +3,7 @@ layout: post
 title: Why NOT write a parser? - Parser BNF
 ---
 
-This is a follow up from my [Why NOT write a parser?](https://jamie-davis.github.io/the-open-closed-dev/why-not-write-a-parser/) post. In this post I will take you through creating the parser.
+This is a follow up from my [Why NOT write a parser?](https://jamie-davis.github.io/the-open-closed-dev/why-not-write-a-parser/) post. In this post I will take you through designing the parser.
 
 I am going to assume you are familiar with the preceding [post](https://jamie-davis.github.io/the-open-closed-dev/Why-NOT-write-a-parser-3/) about creating a lexical analyser. The code in this post will be relying on the ```LexicalAnalyser``` type and the tokens it produces.
 
