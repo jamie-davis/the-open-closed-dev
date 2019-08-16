@@ -112,6 +112,8 @@ I will discuss how to build the code for each of the three steps in follow on po
 
 2. [Lexical Analyser](https://jamie-davis.github.io/the-open-closed-dev/Why-NOT-write-a-parser-3/)
 
+3. [Parser BNF](https://jamie-davis.github.io/the-open-closed-dev/Why-NOT-write-a-parser-4/)
+
 Thanks for reading.
 
 Jamie
