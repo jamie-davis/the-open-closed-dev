@@ -114,6 +114,8 @@ I will discuss how to build the code for each of the three steps in follow on po
 
 3. [Parser BNF](https://jamie-davis.github.io/the-open-closed-dev/Why-NOT-write-a-parser-4/)
 
+4. [Parser BNF To Code](https://jamie-davis.github.io/the-open-closed-dev/Why-NOT-write-a-parser-5/)
+
 Thanks for reading.
 
 Jamie
