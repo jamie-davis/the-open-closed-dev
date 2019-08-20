@@ -191,13 +191,24 @@ We can now define ``TryTakeCalc```:
 
 If you think back to the [```LexicalAnalyser```](https://jamie-davis.github.io/the-open-closed-dev/Why-NOT-write-a-parser-3/), I said I like to use a class to represent my position in the input, and I think we have the same issue with the token stream. For that reason I like to create a class called ```TokenKeeper``` which is the same in principle as ```StringKeeper```. I'm not going to distract us by building ```TokenKeeper``` as part of this post, but the [implementation](https://github.com/jamie-davis/ParserDemo/blob/master/Parser/Parsing/TokenKeeper.cs) can be found in the git repo.
 
-Referring back to our ```<calc>``` production (for simplicity, from the earliest version):
+This is the BNF from the [BNF post](https://jamie-davis.github.io/the-open-closed-dev/Why-NOT-write-a-parser-4/):
 
 ```text
-<calc>        ::= <calcExp> | NumericLiteral
+<calc>               ::= <calcExp> | NumericLiteral
+<calcExp>            ::= <operatorExp> | <parensExp>
+<operatorExp>        ::= <term> Operator <secondTerm>
+<term>               ::= NumericLiteral | <parensExp>
+<secondTerm>         ::= <parensExp> | <operatorExp> | NumericLiteral
+<parensExp>          ::= OpenParens <calcExp> CloseParens
 ```
 
-We defined it as either a ```<calcExp>``` or a ```NumericLiteral``` (the latter is a token, or non-terminal). We can realise the production in code like this:
+Let's focus on the ```<calc>``` production to begin with:
+
+```text
+<calc>               ::= <calcExp> | NumericLiteral
+```
+
+This says a ```<calc>``` is either a ```<calcExp>``` or a ```NumericLiteral```. We can realise the production in code like this:
 
 ```c#
         private static bool TryTakeCalc(TokenKeeper pos, out ExpressionNode node)
@@ -255,44 +266,14 @@ Should be handled like this:
 
 Here we are working with a copy of ```pos``` called ```work``` and using ```pos.Swap(work)``` when we have a successful match. You can hopefully see how mechanical this becomes if you map out your grammar.
 
-We have not discussed the nodes as yet, but we'll get to them shortly. Let's code out the rest of the productions in our grammar first. This was the final grammar:
-
-```text
-<calc>                 ::= <calcExp> | NumericLiteral
-<calcExp>              ::= <missingTerm> | <misplacedOperator> | <misplacedCloseParens> | <badOperatorExp> | <operatorExp> |<badParensExp> | <parensExp>
-<operatorExp>          ::= <term> Operator <secondTerm>
-<term>                 ::= NumericLiteral | <parensExp> | <badParentExp> | <calcExp>
-<secondTerm>           ::= <parensExp> | <badOperatorExp> | <operatorExp> | NumericLiteral
-<parensExp>            ::= OpenParens <calcExp> CloseParens
-<badOperatorExp>       ::= <term> Operator Operator consume(Operator | NumericLiteral)
-<unclosedParensExp>    ::= OpenParens <calcExp> eoi
-<noCalcParensExp>      ::= OpenParens eoi
-<badParensExp>         ::= <unclosedParensExp> | <noCalcParensExp>
-<misplacedOperator>    ::= Operator
-<missingTerm>          ::= eoi
-<misplacedCloseParens> ::= CloseParens
-```
-
-And here is the implementation:
+We have not discussed the nodes as yet, but we'll get to them shortly. Let's code out the rest of the productions in our grammar first:
 
 ```c#
         private static bool TryTakeCalc(TokenKeeper pos, out ExpressionNode node)
-        {         
-             if (TryTakeCalcExp(pos, out node)
-                 || TryTakeNumericLiteral(pos, out node))
-            {
-                return true;
-            }
-
-            node = null;
-            return false;
-        }
-
-        private static bool TryTakeMissingTerm(TokenKeeper pos, out ExpressionNode node)
         {
-            if (pos.Finished)
+            if (TryTakeCalcExp(pos, out node)
+                || TryTakeNumericLiteral(pos, out node))
             {
-                node = new ErrorNode("Missing expression term", string.Empty);
                 return true;
             }
 
@@ -302,17 +283,9 @@ And here is the implementation:
 
         private static bool TryTakeCalcExp(TokenKeeper pos, out ExpressionNode node)
         {
-            var work = new TokenKeeper(pos);
-            if (TryTakeMissingTerm(work, out node)
-             || TryTakeMisplacedOperator(work, out node)
-             || TryTakeMisplacedCloseParens(work, out node)
-             || TryTakeBadOperatorExp(work, out node)
-             || TryTakeOperatorExp(work, out node)
-             || TryTakeBadParensExp(work, out node)
-             || TryTakeParensExp(work, out node)
-             )
+            if (TryTakeOperatorExp(pos, out node)
+                || TryTakeParensExp(pos, out node))
             {
-                pos.Swap(work);
                 return true;
             }
 
@@ -327,53 +300,20 @@ And here is the implementation:
              && TryTakeOperator(work, out var op)
              && TryTakeSecondTerm(work, out var right))
             {
-                pos.Swap(work);
                 node = new OperatorExpNode(left, op, right);
+                pos.Swap(work);
                 return true;
             }
 
             node = null;
-            return false;
-        }
-
-
-        private static bool TryTakeBadOperatorExp(TokenKeeper pos, out ExpressionNode node)
-        {
-            var work = new TokenKeeper(pos);
-            if (TryTakeTerm(work, out var left)
-             && TryTakeOperator(work, out var op)
-             && work.IsNext(TokenType.Operator))
-            {
-                node = new ErrorNode("Invalid operator expression", pos.RemainingData());
-                pos.DiscardWhile(TokenType.Operator, TokenType.NumericLiteral);
-                return true;
-            }
-
-            node = null;
-            return false;
-        }
-
-        private static bool TryTakeOperator(TokenKeeper pos, out OperatorToken op)
-        {
-            if (pos.IsNext(TokenType.Operator))
-            {
-                op = pos.Take() as OperatorToken;
-                return op != null;
-            }
-
-            op = null;
             return false;
         }
 
         private static bool TryTakeTerm(TokenKeeper pos, out ExpressionNode node)
         {
-            var work = new TokenKeeper(pos);
-            if (TryTakeNumericLiteral(work, out node)
-             || TryTakeBadParensExp(work, out node)
-             || TryTakeParensExp(work, out node)
-             || TryTakeCalcExp(work, out node))
+            if (TryTakeNumericLiteral(pos, out node)
+             || TryTakeParensExp(pos, out node))
             {
-                pos.Swap(work);
                 return true;
             }
 
@@ -383,14 +323,10 @@ And here is the implementation:
 
         private static bool TryTakeSecondTerm(TokenKeeper pos, out ExpressionNode node)
         {
-            var work = new TokenKeeper(pos);
-            if (TryTakeBadParensExp(work, out node)
-             || TryTakeParensExp(work, out node)
-             || TryTakeBadOperatorExp(work, out node)
-             || TryTakeOperatorExp(work, out node)
-             || TryTakeNumericLiteral(work, out node))
+            if (TryTakeParensExp(pos, out node)
+             || TryTakeOperatorExp(pos, out node)
+             || TryTakeNumericLiteral(pos, out node))
             {
-                pos.Swap(work);
                 return true;
             }
 
@@ -405,21 +341,7 @@ And here is the implementation:
              && TryTakeCalcExp(work, out var calc)
              && TryTakeCloseParens(work))
             {
-                pos.Swap(work);
                 node = new ParensExpressionNode(calc);
-                return true;
-            }
-
-            node = null;
-            return false;
-        }
-
-        private static bool TryTakeBadParensExp(TokenKeeper pos, out ExpressionNode node)
-        {
-            var work = new TokenKeeper(pos);
-            if (TryTakeUnclosedParensExp(work, out node)
-             || TryTakeNoCalcParensExp(work, out node))
-            {
                 pos.Swap(work);
                 return true;
             }
@@ -428,16 +350,11 @@ And here is the implementation:
             return false;
         }
 
-
-        private static bool TryTakeUnclosedParensExp(TokenKeeper pos, out ExpressionNode node)
+        private static bool TryTakeNumericLiteral(TokenKeeper pos, out ExpressionNode node)
         {
-            var work = new TokenKeeper(pos);
-            if (TryTakeOpenParens(work)
-             && TryTakeCalcExp(work, out var calc)
-             && work.Finished)
+            if (pos.Next.TokenType == TokenType.NumericLiteral)
             {
-                node = new ErrorNode("Unmatched open parenthesis", pos.RemainingData());
-                pos.Swap(work);
+                node = new NumericLiteralNode(pos.Take());
                 return true;
             }
 
@@ -445,25 +362,21 @@ And here is the implementation:
             return false;
         }
 
-
-        private static bool TryTakeNoCalcParensExp(TokenKeeper pos, out ExpressionNode node)
+        private static bool TryTakeOperator(TokenKeeper pos, out OperatorToken op)
         {
-            var work = new TokenKeeper(pos);
-            if (TryTakeOpenParens(work)
-             && work.Finished)
+            if (pos.Next.TokenType == TokenType.Operator)
             {
-                node = new ErrorNode("Unmatched open parenthesis", pos.RemainingData());
-                pos.Swap(work);
+                op = pos.Take() as OperatorToken;
                 return true;
             }
 
-            node = null;
+            op = null;
             return false;
         }
 
         private static bool TryTakeOpenParens(TokenKeeper pos)
         {
-            if (pos.IsNext(TokenType.OpenParens))
+            if (pos.Next.TokenType == TokenType.OpenParens)
             {
                 pos.Take();
                 return true;
@@ -474,51 +387,12 @@ And here is the implementation:
 
         private static bool TryTakeCloseParens(TokenKeeper pos)
         {
-            if (pos.IsNext(TokenType.CloseParens))
+            if (pos.Next.TokenType == TokenType.CloseParens)
             {
                 pos.Take();
                 return true;
             }
 
-            return false;
-        }
-
-        private static bool TryTakeNumericLiteral(TokenKeeper pos, out ExpressionNode node)
-        {
-            if (pos.IsNext(TokenType.NumericLiteral))
-            {
-                var token = pos.Take();
-                node = new NumericLiteralNode(token);
-                return true;
-            }
-
-            node = null;
-            return false;
-        }
-
-        private static bool TryTakeMisplacedOperator(TokenKeeper pos, out ExpressionNode node)
-        {
-            if (pos.IsNext(TokenType.Operator))
-            {
-                node = new ErrorNode("Unexpected operator", pos.RemainingData());
-                pos.DiscardAll();
-                return true;
-            }
-
-            node = null;
-            return false;
-        }
-
-        private static bool TryTakeMisplacedCloseParens(TokenKeeper pos, out ExpressionNode node)
-        {
-            if (pos.IsNext(TokenType.CloseParens))
-            {
-                node = new ErrorNode("Unexpected close parens", pos.RemainingData());
-                pos.DiscardAll();
-                return true;
-            }
-
-            node = null;
             return false;
         }
 ```
@@ -597,29 +471,6 @@ Or from other nodes or a mix:
 
     }```
 
-And finally a specialist one for errors:
-
-```c#
-    internal class ErrorToken : Token
-    {
-        public override TokenType TokenType => TokenType.Error;
-
-        public string ErrorMessage { get; }
-
-        public ErrorToken(StringKeeper pos, string errorMessage)
-        {
-            Text = pos.TakeAll();
-            ErrorMessage = errorMessage;
-        }
-
-        public ErrorToken(string atData, string errorMessage)
-        {
-            Text = atData;
-            ErrorMessage = errorMessage;
-        }
-    }
-```
-
 With a little tweak to the unit test to allow for errors:
 
 ```c#
@@ -669,96 +520,41 @@ With a little tweak to the unit test to allow for errors:
 We can give the parser a try. Here's the report for approval:
 
 ```text
-                          Is                                                                   
-Input                     Valid Result                            Error Message                
-------------------------- ----- --------------------------------- -----------------------------
-1                         True  1                                                              
-32-5                      True  -[32, 5]                                                       
-(3 *5)+  49               True  +[(*[3, 5]), 49]                                               
-1 + 2 + 3                 True  +[1, +[2, 3]]                                                  
-145 * ((63/2 + 5) - 16)   True  *[145, (-[(/[63, +[2, 5]]), 16])]                              
-2 * 2 * (2 * 2)           True  *[2, *[2, (*[2, 2])]]                                          
-1 + +                     True  Error: invalid operator                                        
-                                expression at 1 + +                                            
-(1 + 5                    True  Error: Unmatched open parenthesis                              
-                                at ( 1 + 5                                                     
-1 2                       False                                   Unable to interpret          
-                                                                  calculation at "2"           
-+ 1                       True  Error: Unexpected operator at + 1                              
-((                        True  Error: Unmatched open parenthesis                              
-                                at ( (                                                         
-)                         True  Error: Unexpected close parens at                              
-                                )                                                              
-+                         True  Error: Unexpected operator at +                                
-                          True  Error: Missing expression term at                              
-145 * ((63/2 + 5) - 16))  False                                   Unable to interpret          
-                                                                  calculation at ")"           
-14.5 * ((6.3/2.4 + 5.5) - True  *[14.5, (-[(/[6.3, +[2.4, 5.5]]),                              
-1.6)                            1.6])]                                                         
+                         Is
+Input                    Valid Result                         Error Message
+------------------------ ----- ------------------------------ ---------------------------------
+1                        True  1
+32-5                     True  -[32, 5]
+(3 *5)+  49              True  +[(*[3, 5]), 49]
+1 + 2 + 3                True  +[1, +[2, 3]]
+145 * ((63/2 + 5) - 16)  True  *[145, (-[(/[63, +[2, 5]]),
+                               16])]
+2 * 2 * (2 * 2)          True  *[2, *[2, (*[2, 2])]]
+1 + +                    False                                Unable to interpret calculation  
+                                                              at "+ +"
+(1 + 5                   False                                Unable to interpret calculation  
+                                                              at "( 1 + 5"
+1 2                      False                                Unable to interpret calculation  
+                                                              at "2"
++ 1                      False                                Unable to interpret calculation  
+                                                              at "+ 1"
+((                       False                                Unable to interpret calculation  
+                                                              at "( ("
+)                        False                                Unable to interpret calculation  
+                                                              at ")"
++                        False                                Unable to interpret calculation  
+                                                              at "+"
+                         False                                Unable to interpret calculation  
+                                                              at ""
+(                        False                                Unable to interpret calculation  
+                                                              at "("
+145 * ((63/2 + 5) - 16)) False                                Unable to interpret calculation  
+                                                              at ")"
+14.5 * ((6.3/2.4 + 5.5)  True  *[14.5, (-[(/[6.3, +[2.4, 5.
+- 1.6)                         5]]), 1.6])]
 ```
 
-We also have the error node appearing as an expression so a tweak to the Parse method:
-
-```c#
-        public static ArithmeticExpression Parse(string input)
-        {
-            var tokens = LexicalAnalyser.ExtractTokens(input ?? string.Empty);
-            var pos = new TokenKeeper(tokens);
-            if (TryTakeCalc(pos, out var calculation) && pos.Finished)
-            {
-                var error = AllNodes(calculation).FirstOrDefault(n => n is ErrorNode);
-                if (error != null)
-                    return new ArithmeticExpression(error.Describe());
-
-                return new ArithmeticExpression(calculation);
-            }
-            else
-            {
-                var errorMessage = $"Unable to interpret calculation at \"{pos.RemainingData()}\"";
-                return new ArithmeticExpression(errorMessage);
-            }
-        }
-
-        private static IEnumerable<ExpressionNode> AllNodes(ExpressionNode root)
-        {
-            yield return root;
-            foreach (var node in root.ContainedNodes().SelectMany(n => AllNodes(n)))
-            {
-                yield return node;
-            }
-        }
-```
-
-Giving:
-
-```text
-                          Is                                                                   
-Input                     Valid Result                          Error Message                  
-------------------------- ----- ------------------------------- -------------------------------
-1                         True  1                                                              
-32-5                      True  -[32, 5]                                                       
-(3 *5)+  49               True  +[(*[3, 5]), 49]                                               
-1 + 2 + 3                 True  +[1, +[2, 3]]                                                  
-145 * ((63/2 + 5) - 16)   True  *[145, (-[(/[63, +[2, 5]]),                                    
-                                16])]                                                          
-2 * 2 * (2 * 2)           True  *[2, *[2, (*[2, 2])]]                                          
-1 + +                     False                                 Invalid operator expression at 
-                                                                1 + +                          
-(1 + 5                    False                                 Unmatched open parenthesis at (
-                                                                1 + 5                          
-1 2                       False                                 Unable to interpret calculation
-                                                                at "2"                         
-+ 1                       False                                 Unexpected operator at + 1     
-((                        False                                 Unmatched open parenthesis at (
-                                                                (                              
-)                         False                                 Unexpected close parens at )   
-+                         False                                 Unexpected operator at +       
-                          False                                 Missing expression term at     
-145 * ((63/2 + 5) - 16))  False                                 Unable to interpret calculation
-                                                                at ")"                         
-14.5 * ((6.3/2.4 + 5.5) - True  *[14.5, (-[(/[6.3, +[2.4, 5.                                   
-1.6)                            5]]), 1.6])]                                                   
-```
+The follow up post will discuss taking actions based on the abstract syntax tree.
 
 Thanks for reading.
 
