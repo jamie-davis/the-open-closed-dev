@@ -201,13 +201,17 @@ Try <calc>
 ... and so on forever
 ```
 
-This is called left-recursion and we need to avoid it. If we can't then our grammer is not LL(1) and this method of parsing will not work. There is a fairly simple solution if we treat the second term in an operator expression as a different production, and evaluate it in a different order:
+This is called left-recursion and we need to avoid it. If we can't then our grammer is not LL(1) and this method of parsing will not work. There is a fairly simple solution if we treat the second term in an operator expression as a different production:
 
 ```text
 <operatorExp> ::= <term> Operator <secondTerm>
-<term>        ::= NumericLiteral | <calcExp>
+<term>        ::= NumericLiteral | <parensExp>
 <secondTerm>  ::= <parensExp> | <operatorExp> | NumericLiteral
 ```
+
+There I've said that a ```<term>``` can only be a ```NumericLiteral``` or a ```<parensExp>``` - it cannot be an ```<operatorExp>``` (whereas ```<secondTerm>``` can be any). This means that matching ```1 + 2 + 3``` would match like it was ```1 + (2 + 3)``` and not like it was ```(1 + 2) + 3```.
+
+Here's a dry run of that:
 
 ```text
                                                                                Input
@@ -243,18 +247,16 @@ Try <calc>                                                                     1
 Matched <calc>                                                                 FINISHED
 ```
 
-Corrected:
+Therefore, corrected:
 
 ```text
 <calc>               ::= <calcExp> | NumericLiteral
 <calcExp>            ::= <operatorExp> | <parensExp>
 <operatorExp>        ::= <term> Operator <secondTerm>
-<term>               ::= NumericLiteral | <parensExp> | <calcExp>
+<term>               ::= NumericLiteral | <parensExp>
 <secondTerm>         ::= <parensExp> | <operatorExp> | NumericLiteral
 <parensExp>          ::= OpenParens <calcExp> CloseParens
 ```
-
-If you can't resolve left-recursion, your grammar is not LL(1) and this parsing method will not work (it may not be left-derived).
 
 Another thing to think about is whether this will go haywire if the expression is invalid. Lets try an example:
 
@@ -275,74 +277,11 @@ Try <calc>                                                        1 + +
                         Try NumericLiteral ... No match           +
                         Try <parensExp>                           +
                             Try OpenParens ... No match           +
-                        Try <calcExp>                             +
-                            Try <operatorExp>                     +
-                            ... left recursion!                   +
+        Try <parensExp>                                           +
+            Try OpenParens --- No match                           +
 ```
 
-Here we are in an endless loop because of a bad expression. We can't allow that and must detect the issue and consume the rest of the output as an error. What if we define something that can consume a bad operator expression:
-
-```text
-<calc>               ::= <calcExp> | NumericLiteral
-<calcExp>            ::= <badOperatorExp> | <operatorExp> | <parensExp>
-<operatorExp>        ::= <term> Operator <secondTerm>
-<term>               ::= NumericLiteral | <parensExp> | <calcExp>
-<secondTerm>         ::= <parensExp> | <badOperatorExp> | <operatorExp> | NumericLiteral
-<parensExp>          ::= OpenParens <calcExp> CloseParens
-<badOperatorExp>     ::= <term> Operator Operator
-```
-
-Here I think the best thing to do for our representation of the grammar is to invent a bit of notation that we can use to make the BNF simpler:
-
-```text
-<badOperatorExp>     ::= <term> Operator Operator consume(Operator | NumericLiteral)
-```
-
-In our extension of BNF, ```consume(non-terminals)``` will mean match and take all tokens matching the list. This is not part of BNF, but it will simplify our grammar and since we will be hand implementing the parser we can take this small liberty.
-
-Trying the bad expression again:
-
-```text
-                                                            Input
-Try <calc>                                                  1 + + 100
-    Try <calcExp>                                           1 + + 100
-        Try <badOperatorExp>                                1 + + 100
-            Try <term>                                      1 + + 100
-                Try NumericLiteral ... matched - take "1"   + + 100
-            Matched <term>                                  + + 100
-            Try Operator ... matched take "+"               + 100
-            Try Operator ... matched take "+"               100
-            Consume all (Operator | NumericLiteral)         FINISHED
-        Matched <badOperatorExp>                            FINISHED
-    Matched                                                 FINISHED
-Matched                                                     FINISHED
-```
-
-This will be adequate for our purposes. The important part is that it needs to be a successful match to avoid left-recursion, and skipping input is the simplest way to recover to a point in the input we have a chance to continue parsing.
-
-There may be other error conditions that will derail parsing, such as unmatched parenthesis, which will require slightly different handling. Detecting a missing close parenthesis will show up as running out of tokens. e.g. ```(5 *3``` or ```((11 +4) * 6``` which means we need a way to match the end of the input. We will extend BNF a bit more to support this:
-
-```text
-<badParensExp>       ::= OpenParens <calcExp> eoi
-```
-
-```eoi``` will match "end of input". Here's a more robust version of the grammar - you can see how error handling has complicated the job:
-
-```text
-<calc>                 ::= <calcExp> | NumericLiteral
-<calcExp>              ::= <missingTerm> | <misplacedOperator> | <misplacedCloseParens> | <badOperatorExp> | <operatorExp> |<badParensExp> | <parensExp>
-<operatorExp>          ::= <term> Operator <secondTerm>
-<term>                 ::= NumericLiteral | <parensExp> | <badParentExp> | <calcExp>
-<secondTerm>           ::= <parensExp> | <badOperatorExp> | <operatorExp> | NumericLiteral
-<parensExp>            ::= OpenParens <calcExp> CloseParens
-<badOperatorExp>       ::= <term> Operator Operator consume(Operator | NumericLiteral)
-<unclosedParensExp>    ::= OpenParens <calcExp> eoi
-<noCalcParensExp>      ::= OpenParens eoi
-<badParensExp>         ::= <unclosedParensExp> | <noCalcParensExp>
-<misplacedOperator>    ::= Operator
-<missingTerm>          ::= eoi
-<misplacedCloseParens> ::= CloseParens
-```
+The match failed. If you go through the process with other invalid expressions, you get the similar results.
 
 In the next post we will convert the BNF into code.
 
