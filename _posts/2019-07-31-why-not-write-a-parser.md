@@ -118,6 +118,8 @@ I will discuss how to build the code for each of the three steps in follow on po
 
 5. [TDD Parser (i.e. what if you don't use BNF?)](https://jamie-davis.github.io/the-open-closed-dev/Why-NOT-write-a-parser-6/)
 
+6. [Acting on the parser output](https://jamie-davis.github.io/the-open-closed-dev/Why-NOT-write-a-parser-7/)
+
 Thanks for reading.
 
 Jamie
